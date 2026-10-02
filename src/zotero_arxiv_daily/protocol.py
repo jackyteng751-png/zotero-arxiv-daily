@@ -11,7 +11,7 @@ RawPaperItem = TypeVar('RawPaperItem')
 
 def _request_llm(openai_client: OpenAI, llm_params: dict, messages: list[dict]) -> str:
     api_mode = llm_params.get("api_mode", "chat_completion")
-    generation_kwargs = dict(llm_params.get("generation_kwargs", {}))
+    generation_kwargs = {k: v for k, v in llm_params.get("generation_kwargs", {}).items() if v is not None}
 
     if api_mode == "chat_completion":
         response = openai_client.chat.completions.create(

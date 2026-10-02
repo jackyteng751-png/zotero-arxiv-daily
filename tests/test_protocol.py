@@ -5,6 +5,14 @@ import pytest
 from tests.canned_responses import make_sample_paper, make_stub_openai_client
 
 
+@pytest.fixture(autouse=True)
+def offline_tokenizer(monkeypatch):
+    """Test prompt limits and LLM behavior without downloading encoding files."""
+    from types import SimpleNamespace
+    monkeypatch.setattr('zotero_arxiv_daily.protocol.tiktoken.encoding_for_model',
+                        lambda model: SimpleNamespace(encode=list, decode=lambda tokens: ''.join(tokens)))
+
+
 @pytest.fixture()
 def llm_params():
     return {
@@ -52,10 +60,16 @@ def test_tldr_falls_back_to_abstract_on_error(llm_params):
 
 
 def test_tldr_truncates_long_prompt(llm_params):
-    client = make_stub_openai_client()
+    from types import SimpleNamespace
+    received = {}
+    def create(**kwargs):
+        received.update(kwargs)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='Summary'))])
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
     paper = make_sample_paper(full_text="word " * 10000)
     result = paper.generate_tldr(client, llm_params)
-    assert result is not None
+    assert result == 'Summary'
+    assert len(received['messages'][-1]['content']) == 4000
 
 
 def test_response_mode_maps_max_tokens(llm_params):
@@ -76,6 +90,21 @@ def test_response_mode_maps_max_tokens(llm_params):
     assert paper.generate_tldr(client, llm_params) == "Summary"
     assert received_kwargs["max_output_tokens"] == 16384
     assert "max_tokens" not in received_kwargs
+
+
+@pytest.mark.parametrize('api_mode', ['chat_completion', 'response'])
+def test_null_token_limit_omitted(api_mode):
+    from types import SimpleNamespace
+    from zotero_arxiv_daily.protocol import _request_llm
+    received = {}
+    def create(**kwargs):
+        received.update(kwargs)
+        return SimpleNamespace(output_text='ok', choices=[SimpleNamespace(message=SimpleNamespace(content='ok'))])
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)), responses=SimpleNamespace(create=create))
+    assert _request_llm(client, {'api_mode': api_mode, 'generation_kwargs': {'model': 'test', 'max_tokens': None, 'temperature': 0}}, []) == 'ok'
+    assert 'max_tokens' not in received
+    assert 'max_output_tokens' not in received
+    assert received['temperature'] == 0
 
 
 def test_invalid_api_mode_falls_back_to_abstract(llm_params):

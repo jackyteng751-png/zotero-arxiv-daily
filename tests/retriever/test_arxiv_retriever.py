@@ -1,9 +1,11 @@
 """Tests for ArxivRetriever."""
 
 import time
+import os
 from types import SimpleNamespace
 
 import feedparser
+import pytest
 
 from zotero_arxiv_daily.retriever.arxiv_retriever import ArxivRetriever, _run_with_hard_timeout
 import zotero_arxiv_daily.retriever.arxiv_retriever as arxiv_retriever
@@ -65,7 +67,7 @@ def test_arxiv_retriever(config, mock_feedparser, monkeypatch):
 
 def test_run_with_hard_timeout_returns_value():
     result = _run_with_hard_timeout(
-        _sleep_and_return, ("done", 0.01), timeout=1, operation="test op", paper_title="paper"
+        _sleep_and_return, ("done", 0.01), timeout=30 if os.name == 'nt' else 1, operation="test op", paper_title="paper"
     )
     assert result == "done"
 
@@ -84,7 +86,7 @@ def test_run_with_hard_timeout_returns_none_on_failure(monkeypatch):
     warnings: list[str] = []
     monkeypatch.setattr(arxiv_retriever, "logger", SimpleNamespace(warning=warnings.append))
     result = _run_with_hard_timeout(
-        _raise_runtime_error, (), timeout=1, operation="test op", paper_title="paper"
+        _raise_runtime_error, (), timeout=30 if os.name == 'nt' else 1, operation="test op", paper_title="paper"
     )
     assert result is None
     assert "boom" in warnings[0]
@@ -251,4 +253,56 @@ def test_retrieve_raw_papers_retries_on_http_failure(config, mock_feedparser, mo
     raw = retriever._retrieve_raw_papers()
     assert len(calls) == 2
     assert len(raw) > 0
+
+
+@pytest.mark.parametrize('status', [429, 503])
+def test_retry_after_and_recovery(config, mock_feedparser, monkeypatch, status):
+    waits = []
+    calls = []
+    monkeypatch.setattr(arxiv_retriever, 'sleep', waits.append)
+    monkeypatch.setattr(arxiv_retriever, 'uniform', lambda a, b: 0)
+    def parse(url):
+        calls.append(url)
+        if len(calls) < 3:
+            return SimpleNamespace(status=status, headers={'Retry-After': '45'}, feed=SimpleNamespace(title='error'), entries=[], bozo=False)
+        return mock_feedparser
+    monkeypatch.setattr(arxiv_retriever.feedparser, 'parse', parse)
+    monkeypatch.setattr(arxiv_retriever.arxiv, 'Client', lambda **kw: pytest.fail('Export API must not be called'))
+    assert ArxivRetriever(config)._retrieve_raw_papers()
+    assert waits == [45, 60]
+    assert len(calls) == 3
+
+
+def test_retry_exhaustion(config, monkeypatch):
+    calls = []
+    monkeypatch.setattr(arxiv_retriever, 'sleep', lambda _: None)
+    def parse(url):
+        calls.append(url)
+        return SimpleNamespace(status=503, feed=SimpleNamespace(title='error'), entries=[], bozo=False)
+    monkeypatch.setattr(arxiv_retriever.feedparser, 'parse', parse)
+    with pytest.raises(RuntimeError, match='after 5 attempts'):
+        ArxivRetriever(config)._retrieve_raw_papers()
+    assert len(calls) == 5
+
+
+def test_all_announce_types_preserved(config, mock_feedparser):
+    config.source.arxiv.include_all_announce_types = True
+    raw = ArxivRetriever(config)._retrieve_raw_papers()
+    assert len(raw) == len({entry.id for entry in mock_feedparser.entries})
+
+
+def test_retry_after_http_date(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from email.utils import format_datetime
+    monkeypatch.setattr(arxiv_retriever, 'uniform', lambda a, b: 0)
+    date = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=120), usegmt=True)
+    assert 118 <= arxiv_retriever._retry_delay(0, {'retry-after': date}) <= 120
+    assert arxiv_retriever._retry_delay(0, {'Retry-After': 'invalid'}) == 30
+
+
+def test_nonretryable_http_error(config, monkeypatch):
+    monkeypatch.setattr(arxiv_retriever, 'sleep', lambda _: pytest.fail('404 should not be retried'))
+    monkeypatch.setattr(arxiv_retriever.feedparser, 'parse', lambda url: SimpleNamespace(status=404, feed=SimpleNamespace(title='not found'), entries=[], bozo=False))
+    with pytest.raises(RuntimeError, match='HTTP 404'):
+        ArxivRetriever(config)._retrieve_raw_papers()
 

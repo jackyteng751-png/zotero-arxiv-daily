@@ -5,6 +5,8 @@ from ..protocol import Paper
 from ..utils import extract_markdown_from_pdf, extract_tex_code_from_tar
 import calendar
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from random import uniform
 import multiprocessing
 import os
 from queue import Empty
@@ -23,6 +25,22 @@ T = TypeVar("T")
 DOWNLOAD_TIMEOUT = (10, 60)
 PDF_EXTRACT_TIMEOUT = 180
 TAR_EXTRACT_TIMEOUT = 180
+
+
+def _retry_delay(attempt: int, headers: dict) -> float:
+    """Honor Retry-After seconds or HTTP date, with exponential backoff."""
+    delay = min(30 * 2 ** attempt, 300) + uniform(0, 5)
+    value = next((v for k, v in headers.items() if k.lower() == "retry-after"), None)
+    if value:
+        try:
+            server_delay = float(value)
+        except (TypeError, ValueError):
+            try:
+                server_delay = (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds()
+            except (TypeError, ValueError, OverflowError):
+                server_delay = 0
+        delay = max(delay, server_delay)
+    return delay
 
 HTML_TAG_PATTERN = re.compile(
     r"</?(?:p|a|span|div|b|i|strong|em|br|hr|h[1-6]|ul|ol|li|sub|sup|table|tr|td|th)\b(?:\s+[^>]*)?/?>",
@@ -221,7 +239,6 @@ class ArxivRetriever(BaseRetriever):
 
         # Get latest papers from arxiv RSS feed with retry
         retry_num = 5
-        delay_time = 5
         feed = None
         for attempt in range(retry_num):
             feed = feedparser.parse(rss_url)
@@ -242,8 +259,12 @@ class ArxivRetriever(BaseRetriever):
             if has_valid_feed:
                 break
 
+            if status is not None and 400 <= status < 500 and status not in {408, 429}:
+                raise RuntimeError(f"arXiv RSS request failed with HTTP {status}: {rss_url}")
+
             error_msg = f"status={status}" if status is not None else f"bozo_exception={bozo_exc}"
             if attempt < retry_num - 1:
+                delay_time = _retry_delay(attempt, getattr(feed, "headers", {}) or {})
                 logger.warning(
                     f"Failed to fetch valid arxiv RSS feed ({error_msg}), retrying in {delay_time}s..."
                 )
@@ -257,9 +278,10 @@ class ArxivRetriever(BaseRetriever):
             )
 
         allowed_announce_types = {"new", "cross"} if include_cross_list else {"new"}
+        include_all = self.config.source.arxiv.get("include_all_announce_types", False)
         target_entries = [
             i for i in feed.entries
-            if i.get("arxiv_announce_type", "new") in allowed_announce_types
+            if include_all or i.get("arxiv_announce_type", "new") in allowed_announce_types
         ]
         if self.config.executor.debug:
             target_entries = target_entries[:10]

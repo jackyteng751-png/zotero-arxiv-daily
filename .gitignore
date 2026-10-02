@@ -10,6 +10,9 @@ wheels/
 
 # Virtual environments
 .venv
+.venv-tests/
+.uv-cache/
+.python/
 test.ipynb
 
 logs

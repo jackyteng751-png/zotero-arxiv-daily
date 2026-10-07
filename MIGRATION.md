@@ -79,12 +79,16 @@ executor:
 
 ## Deployment and rollback
 
-Local validation: Python 3.13.16, 117 tests passed and 1 slow model-download test
+Local validation: Python 3.13.16, 123 tests passed and 1 slow model-download test
 excluded. Regression checks cover 429/503 recovery, Retry-After seconds and dates,
 retry exhaustion, announcement types, credential references, legacy config
 round-tripping and LLM API parameters. Workflow YAML and Python syntax also passed.
-Tests use service stubs; live Zotero/SMTP/LLM validation still requires GitHub login
-and the repository's actual configuration. The core tested dependency versions
+The actual configuration was verified on 2026-10-07: CI run 37559851449 passed;
+Test run 37559949118 retrieved papers, generated summaries without TLDR failures,
+and logged Email sent successfully. Three optional affiliation fields had list
+parsing errors; a follow-up parser accepts JSON and Python string lists using
+json.loads or ast.literal_eval, with regression tests and no second live model run.
+The original Zotero exclusion rules remain unchanged. The core dependency versions
 match uv.lock; heavy model dependencies were not installed for the offline tests.
 
 Push the backup and migration branches after GitHub authentication is available.

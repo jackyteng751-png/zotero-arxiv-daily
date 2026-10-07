@@ -183,3 +183,19 @@ def test_affiliations_error_returns_none(llm_params):
     result = paper.generate_affiliations(broken_client, llm_params)
     assert result is None
     assert paper.affiliations is None
+
+
+@pytest.mark.parametrize('content', ["['First University', 'Second University', 'First University']", '["First University", "Second University", "First University"]'])
+def test_affiliations_accepts_python_and_json_lists(llm_params, content):
+    from types import SimpleNamespace
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(
+        create=lambda **kwargs: SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))]))))
+    assert make_sample_paper().generate_affiliations(client, llm_params) == ['First University', 'Second University']
+
+
+@pytest.mark.parametrize('content', ['[123]', "[__import__('os').getcwd()]", '[["Nested University"]]'])
+def test_affiliations_rejects_non_string_lists_and_expressions(llm_params, content):
+    from types import SimpleNamespace
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(
+        create=lambda **kwargs: SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))]))))
+    assert make_sample_paper().generate_affiliations(client, llm_params) is None

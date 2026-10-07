@@ -6,6 +6,7 @@ import tiktoken
 from openai import OpenAI
 from loguru import logger
 import json
+import ast
 RawPaperItem = TypeVar('RawPaperItem')
 
 
@@ -116,9 +117,13 @@ class Paper:
             )
 
             affiliations = re.search(r'\[.*?\]', affiliations, flags=re.DOTALL).group(0)
-            affiliations = json.loads(affiliations)
-            affiliations = list(set(affiliations))
-            affiliations = [str(a) for a in affiliations]
+            try:
+                affiliations = json.loads(affiliations)
+            except json.JSONDecodeError:
+                affiliations = ast.literal_eval(affiliations)
+            if not isinstance(affiliations, list) or any(not isinstance(a, str) for a in affiliations):
+                raise ValueError('Affiliations must be a list of strings.')
+            affiliations = list(dict.fromkeys(affiliations))
 
             return affiliations
     

@@ -42,9 +42,7 @@ def prepare_config(environ, config_dir):
         config.reranker.local.encode_kwargs = None
         config.llm.generation_kwargs.max_tokens = None
         config.llm.generation_kwargs.temperature = 0
-        patterns = [p.strip() for p in environ.get('ZOTERO_IGNORE', '').splitlines() if p.strip() and not p.lstrip().startswith('#')]
-        if patterns:
-            raise ValueError('ZOTERO_IGNORE uses gitignore rules; the new ignore_path uses glob rules. Convert the patterns in CUSTOM_CONFIG before upgrading to avoid changing collection selection.')
+        config.zotero.legacy_ignore_patterns = environ.get('ZOTERO_IGNORE', '') or None
     if environ.get('DEBUG'):
         config.executor.debug = environ['DEBUG'].lower() in {'true', '1'}
     OmegaConf.to_container(config, resolve=True, throw_on_missing=True)

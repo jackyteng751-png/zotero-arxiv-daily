@@ -42,12 +42,19 @@ def test_legacy_migration(tmp_path, legacy_env):
     assert 'fake-api-key' not in saved
 
 
-@pytest.mark.parametrize('changes', [{'USE_LLM_API': 'false'}, {'ZOTERO_IGNORE': 'archive/**'}])
+@pytest.mark.parametrize('changes', [{'USE_LLM_API': 'false'}])
 def test_incompatible_legacy_settings_fail_before_write(tmp_path, legacy_env, changes):
     legacy_env.update(changes)
     with pytest.raises(ValueError):
         prepare_config(legacy_env, setup_config(tmp_path))
     assert not (tmp_path / 'custom.yaml').exists()
+
+
+def test_legacy_ignore_preserved(tmp_path, legacy_env):
+    rules = 'Reconstruction Algorithm/\r\nSingle-cell/\r\nSMZ/'
+    legacy_env['ZOTERO_IGNORE'] = rules
+    prepare_config(legacy_env, setup_config(tmp_path))
+    assert OmegaConf.load(tmp_path / 'custom.yaml').zotero.legacy_ignore_patterns == rules
 
 
 def test_custom_config_overrides_legacy(tmp_path, legacy_env):

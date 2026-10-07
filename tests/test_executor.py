@@ -99,6 +99,21 @@ def test_filter_corpus_no_filters_returns_all():
     assert filtered == corpus
 
 
+def test_legacy_ignore_retains_gitignore_semantics(config, tmp_path):
+    import os
+    from gitignore_parser import parse_gitignore, parse_gitignore_str
+    rules = 'Reconstruction Algorithm/\nSingle-cell/\nSMZ/\n!SMZ/keep/'
+    original_file = tmp_path / 'ignore'
+    original_file.write_text(rules)
+    original_matcher = parse_gitignore(str(original_file), base_dir=os.getcwd())
+    executor = _make_executor()
+    executor.legacy_ignore_matcher = parse_gitignore_str(rules, os.getcwd())
+    paths = ['SMZ', 'SMZ/papers', 'parent/SMZ/papers', 'SMZ/keep/paper',
+             'Single-cell/child', 'Reconstruction Algorithm/papers', 'Research/keep']
+    corpus = [CorpusPaper(title=p, abstract='', added_date=datetime(2026, 1, 1), paths=[p]) for p in paths]
+    assert executor.filter_corpus(corpus) == [c for c in corpus if not any(original_matcher(p) for p in c.paths)]
+
+
 # ---------------------------------------------------------------------------
 # fetch_zotero_corpus
 # ---------------------------------------------------------------------------

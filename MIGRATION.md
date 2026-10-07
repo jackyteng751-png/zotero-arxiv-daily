@@ -42,9 +42,10 @@ The new upstream requires an OpenAI-compatible LLM API. If USE_LLM_API is false
 or unset, automatic migration stops before running the application. Do not switch
 to a paid API without deliberately choosing the provider and model.
 
-ZOTERO_IGNORE uses gitignore semantics, whereas the new zotero.ignore_path uses
-glob semantics. Nonempty old rules must be reviewed and moved into CUSTOM_CONFIG;
-automatic migration stops rather than silently changing the selected library.
+ZOTERO_IGNORE is retained as zotero.legacy_ignore_patterns and evaluated by the
+original gitignore parser, preserving exclusion and negation rules. New
+zotero.ignore_path settings continue to use glob semantics. SEND_EMPTY can be
+read from either Variables or Secrets, with Variables taking precedence.
 
 Example CUSTOM_CONFIG (replace categories, server, model and rules with your own):
 

@@ -11,6 +11,8 @@ from .construct_email import render_email
 from .utils import send_email
 from openai import OpenAI
 from tqdm import tqdm
+from gitignore_parser import parse_gitignore_str
+import os
 
 
 def normalize_path_patterns(patterns: list[str] | ListConfig | None, config_key: str) -> list[str] | None:
@@ -34,6 +36,8 @@ class Executor:
         self.config = config
         self.include_path_patterns = normalize_path_patterns(config.zotero.include_path, "include_path")
         self.ignore_path_patterns = normalize_path_patterns(config.zotero.ignore_path, "ignore_path")
+        legacy_patterns = config.zotero.get('legacy_ignore_patterns')
+        self.legacy_ignore_matcher = parse_gitignore_str(legacy_patterns, os.getcwd()) if legacy_patterns else None
         self.retrievers = {
             source: get_retriever_cls(source)(config) for source in config.executor.source
         }
@@ -83,7 +87,10 @@ class Executor:
                     for pattern in self.ignore_path_patterns
                 )
             ]
-        if self.include_path_patterns or self.ignore_path_patterns:
+        legacy_matcher = getattr(self, 'legacy_ignore_matcher', None)
+        if legacy_matcher:
+            corpus = [c for c in corpus if not any(legacy_matcher(path) for path in c.paths)]
+        if self.include_path_patterns or self.ignore_path_patterns or legacy_matcher:
             samples = random.sample(corpus, min(5, len(corpus)))
             samples = '\n'.join([c.title + ' - ' + '\n'.join(c.paths) for c in samples])
             logger.info(f"Selected {len(corpus)} zotero papers:\n{samples}\n...")
@@ -94,7 +101,7 @@ class Executor:
         corpus = self.fetch_zotero_corpus()
         corpus = self.filter_corpus(corpus)
         if len(corpus) == 0:
-            logger.error(f"No zotero papers found. Please check your zotero settings:\n{self.config.zotero}")
+            logger.error('No Zotero papers remain. Check credentials and collection filters.')
             return
         all_papers = []
         for source, retriever in self.retrievers.items():

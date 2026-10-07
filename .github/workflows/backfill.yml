@@ -1,0 +1,65 @@
+name: Historical catch-up (approximate)
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'First missed run date in Beijing (YYYY-MM-DD)'
+        required: true
+        type: string
+      end_date:
+        description: 'Last missed run date in Beijing (YYYY-MM-DD)'
+        required: true
+        type: string
+      exclude_dates:
+        description: 'Successful run dates to skip (comma-separated YYYY-MM-DD)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+concurrency:
+  group: historical-catch-up
+  cancel-in-progress: false
+
+jobs:
+  recover-and-send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7.1.4
+      - name: Retrieve, rank and send one catch-up email
+        env:
+          BACKFILL_START: ${{ inputs.start_date }}
+          BACKFILL_END: ${{ inputs.end_date }}
+          BACKFILL_EXCLUDE: ${{ inputs.exclude_dates }}
+          ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
+          ZOTERO_KEY: ${{ secrets.ZOTERO_KEY }}
+          SENDER: ${{ secrets.SENDER }}
+          RECEIVER: ${{ secrets.RECEIVER }}
+          SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
+          ZOTERO_IGNORE: ${{ vars.ZOTERO_IGNORE }}
+          SEND_EMPTY: ${{ vars.SEND_EMPTY || secrets.SEND_EMPTY }}
+          ARXIV_QUERY: ${{ secrets.ARXIV_QUERY }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          MAX_PAPER_NUM: ${{ secrets.MAX_PAPER_NUM }}
+          USE_LLM_API: ${{ secrets.USE_LLM_API }}
+          MODEL_NAME: ${{ secrets.MODEL_NAME }}
+          LANGUAGE: ${{ vars.LANGUAGE }}
+        run: |
+          uv run --locked scripts/prepare_config.py
+          uv run --locked python -m zotero_arxiv_daily.backfill
+      - name: Save public-paper recovery report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-catch-up-report
+          path: outputs/backfill/report.json
+          if-no-files-found: ignore
+          retention-days: 30

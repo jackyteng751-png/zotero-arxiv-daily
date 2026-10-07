@@ -104,3 +104,29 @@ The upstream now uses Python 3.13. Automatic legacy conversion keeps the old
 `avsolatorio/GIST-small-Embedding-v0` embedding model and temperature=0.
 When using CUSTOM_CONFIG, the upstream embedding model is the default unless
 you explicitly override reranker.local.model and encode_kwargs.
+# Historical catch-up (2026-10-07)
+
+`Historical catch-up (approximate)` is a manual-only workflow, independent of
+the daily RSS workflow. Its date inputs are missed Beijing 06:00 run dates,
+not submission dates. Exclude successful run dates explicitly. It searches
+original submissions, estimates their ordinary announcement/RSS schedule,
+deduplicates paper IDs, ranks all candidates against the current filtered
+Zotero corpus, and sends one aggregate email using the existing overall
+`MAX_PAPER_NUM` limit (`-1` means all). Only selected abstracts are sent to
+the existing model for summaries; historical full text/affiliations are not
+requested. The public-paper candidate report is retained as an artifact for
+30 days, without Zotero corpus, email addresses or credentials.
+
+This cannot reconstruct historical RSS exactly: moderation delays, holidays,
+old-paper replacements and later cross-listing changes may cause omissions
+or duplicates. Successful days are excluded by estimated schedule, not by a
+reliable past-sent-paper ledger. Do not rerun the send workflow automatically
+after an uncertain SMTP result, since that may duplicate the email.
+
+Zotero collection paths are fetched afresh each run. Sync collection changes
+to Zotero's cloud, then update the GitHub Actions repository variable
+`ZOTERO_IGNORE` if excluded folders were renamed/moved. One gitignore-style
+path per line; keep the existing trailing `/` for folders. With no
+`CUSTOM_CONFIG`, all nonexcluded papers with abstracts are used. If a
+`CUSTOM_CONFIG` is later added, its `zotero.include_path`/`ignore_path` become
+the authoritative filtering configuration instead of the legacy variable.

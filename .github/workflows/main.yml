@@ -2,7 +2,9 @@ name: Send emails daily
 on:
   workflow_dispatch:
   schedule:
+    # GitHub cron uses UTC: 22:00 -> 06:00 and 06:00 -> 14:00 Asia/Shanghai.
     - cron: '0 22 * * *'
+    - cron: '0 6 * * *'
 
 jobs:
   calculate-and-send:

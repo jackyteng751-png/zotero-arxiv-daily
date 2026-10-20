@@ -34,7 +34,13 @@ Secrets stay in GitHub Actions; generated YAML keeps environment references for
 credentials. Workflows no longer print the custom configuration into logs.
 The checkout uses the selected branch of this fork, so REPOSITORY and REF no longer
 redirect execution to another repository or override the branch under test.
-The original daily schedule remains `0 22 * * *` (06:00 Asia/Shanghai).
+The original daily schedule was `0 22 * * *` (06:00 Asia/Shanghai).
+On 2026-10-20, a second daily run was added at `0 6 * * *`
+(14:00 Asia/Shanghai), preserving the original morning run. GitHub may delay
+scheduled runs. Ranking, paper limits, Zotero filters, email settings and
+empty-email behavior are unchanged. The two runs do not share a sent-paper
+ledger, so an unchanged RSS batch can produce repeat recommendations; model
+requests and associated usage can also increase with the extra run.
 
 ## Compatibility gates
 

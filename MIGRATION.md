@@ -60,6 +60,14 @@ budget, payment or account security settings were changed. After restoration,
 manual success would validate the application path, not prove future scheduled
 delivery.
 
+On the user's subsequent retry on 2026-10-26, dispatch was accepted (HTTP 204).
+Run `40258772969` completed successfully and logged SMTP email-send success at
+02:24:18 UTC (10:24:18 Asia/Shanghai). The RSS batch contained zero papers, so
+the existing SEND_EMPTY behavior sent an empty notice and no LLM generation
+was attempted. Manual execution and SMTP submission are verified restored;
+the next scheduled run still needs to occur to verify automatic triggering.
+The 06:17/14:17 Asia/Shanghai schedules remain unchanged.
+
 ## Compatibility gates
 
 The new upstream requires an OpenAI-compatible LLM API. If USE_LLM_API is false

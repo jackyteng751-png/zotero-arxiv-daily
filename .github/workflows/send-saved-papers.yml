@@ -1,0 +1,74 @@
+name: Email additional saved papers
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Successful historical catch-up run containing the saved ranking'
+        required: true
+        type: string
+      start_rank:
+        description: 'First rank to send (1-based; must be after the previous selection)'
+        required: true
+        type: string
+        default: '21'
+      paper_count:
+        description: 'Number of additional papers'
+        required: true
+        type: string
+        default: '40'
+
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: email-additional-saved-papers
+  cancel-in-progress: false
+
+jobs:
+  send-additional:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Download the existing ranking report
+        uses: actions/download-artifact@v4
+        with:
+          name: historical-catch-up-report
+          path: outputs/saved-papers
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7.1.4
+      - name: Send one additional-paper email (no LLM requests)
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          START_RANK: ${{ inputs.start_rank }}
+          PAPER_COUNT: ${{ inputs.paper_count }}
+          ZOTERO_ID: ${{ secrets.ZOTERO_ID }}
+          ZOTERO_KEY: ${{ secrets.ZOTERO_KEY }}
+          SENDER: ${{ secrets.SENDER }}
+          RECEIVER: ${{ secrets.RECEIVER }}
+          SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          CUSTOM_CONFIG: ${{ vars.CUSTOM_CONFIG }}
+          ZOTERO_IGNORE: ${{ vars.ZOTERO_IGNORE }}
+          SEND_EMPTY: ${{ vars.SEND_EMPTY || secrets.SEND_EMPTY }}
+          ARXIV_QUERY: ${{ secrets.ARXIV_QUERY }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          MAX_PAPER_NUM: ${{ secrets.MAX_PAPER_NUM }}
+          USE_LLM_API: ${{ secrets.USE_LLM_API }}
+          MODEL_NAME: ${{ secrets.MODEL_NAME }}
+          LANGUAGE: ${{ vars.LANGUAGE }}
+        run: |
+          uv run --locked scripts/prepare_config.py
+          uv run --locked python scripts/send_saved_papers.py
+      - name: Save additional-paper receipt
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: additional-paper-email-report
+          path: outputs/additional-papers/report.json
+          retention-days: 30

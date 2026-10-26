@@ -1,5 +1,17 @@
 # Upgrade record (2026-10-02)
 
+## Additional saved-paper email (2026-10-26)
+
+`Email additional saved papers` is a manual-only workflow. It downloads the
+existing `historical-catch-up-report` from a specified successful run and sends
+an exact requested rank slice to the existing email recipient. It rejects
+overlap with that report's original selection, duplicate paper IDs and partial
+selections. This is a title/link/relevance supplement, explicitly labelled as
+having no newly generated AI summaries. No arXiv retrieval, Zotero fetch,
+reranking or model calls are performed. The daily limit and cron are unchanged.
+The job token has contents-read and actions-read access only; no account-level
+permission or secret changes are required.
+
 Original version: `d64df3a` (backup branch `backup/before-upstream-sync-2026-10-02`).
 Upstream version: `edc6863` (2026-10-01).
 Migration branch: `migration/upstream-2026-10-02`.

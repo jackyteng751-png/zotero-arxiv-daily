@@ -50,10 +50,15 @@ of the missing triggers could not be established from available records.
 The planned manual validation was not started: both dispatch attempts returned
 HTTP 422, with the explicit message "Actions has been disabled for this
 repository." Read-only repository/workflow settings nevertheless reported
-enabled/active. Repository-wide re-enablement requires separate user approval
-because it affects CI, keep-alive and other workflows as well as daily email.
-No model request or test email was triggered. After restoration, manual success
-would validate the application path, not prove future scheduled delivery.
+enabled/active. After explicit user approval, the repository Actions permissions
+were set to enabled (without changing allowed-actions rules), and the daily
+workflow was enabled. Both operations returned HTTP 204, but the subsequent
+single validation dispatch still returned the same HTTP 422. No model request
+or test email was triggered. This is not resolved by ordinary enable settings;
+GitHub-controlled restrictions may require GitHub Support review. No billing,
+budget, payment or account security settings were changed. After restoration,
+manual success would validate the application path, not prove future scheduled
+delivery.
 
 ## Compatibility gates
 

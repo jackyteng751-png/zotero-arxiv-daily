@@ -47,8 +47,13 @@ On 2026-10-26, both cron expressions were updated to `17 22 * * *` and
 and avoids top-of-hour load after no runs were recorded from October 23.
 The workflow and repository Actions were still enabled; the precise cause
 of the missing triggers could not be established from available records.
-One manual run is used to validate the existing retrieval/model/email path;
-manual success does not itself prove future scheduled delivery.
+The planned manual validation was not started: both dispatch attempts returned
+HTTP 422, with the explicit message "Actions has been disabled for this
+repository." Read-only repository/workflow settings nevertheless reported
+enabled/active. Repository-wide re-enablement requires separate user approval
+because it affects CI, keep-alive and other workflows as well as daily email.
+No model request or test email was triggered. After restoration, manual success
+would validate the application path, not prove future scheduled delivery.
 
 ## Compatibility gates
 

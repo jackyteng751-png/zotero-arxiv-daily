@@ -42,6 +42,14 @@ empty-email behavior are unchanged. The two runs do not share a sent-paper
 ledger, so an unchanged RSS batch can produce repeat recommendations; model
 requests and associated usage can also increase with the extra run.
 
+On 2026-10-26, both cron expressions were updated to `17 22 * * *` and
+`17 6 * * *` (06:17 and 14:17 Asia/Shanghai). This re-registers the schedule
+and avoids top-of-hour load after no runs were recorded from October 23.
+The workflow and repository Actions were still enabled; the precise cause
+of the missing triggers could not be established from available records.
+One manual run is used to validate the existing retrieval/model/email path;
+manual success does not itself prove future scheduled delivery.
+
 ## Compatibility gates
 
 The new upstream requires an OpenAI-compatible LLM API. If USE_LLM_API is false
